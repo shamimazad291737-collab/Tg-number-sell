@@ -1,8 +1,6 @@
 import os
 import logging
 import requests
-from flask import Flask
-from threading import Thread
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
@@ -21,17 +19,6 @@ SIM5_HEADERS = {
     "Accept": "application/json"
 }
 
-# রেন্ডার ফ্রি সার্ভার টিক রাখার জন্য ফ্লাস্ক (Flask) অ্যাপ
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Bot is running live!"
-
-def run_flask():
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
-
 # /start কমান্ড হ্যান্ডলার
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
@@ -40,7 +27,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "স্বাগতম! Render-এ রান করা 5sim বটে আপনাকে স্বাগতম। নিচের অপশনগুলো থেকে সিলেক্ট করুন:",
+        "স্বাগতম! 5sim বটে আপনাকে স্বাগতম। নিচের অপশনগুলো থেকে সিলেক্ট করুন:",
         reply_markup=reply_markup
     )
 
@@ -96,21 +83,14 @@ def main() -> None:
         logger.error("Error: TELEGRAM_BOT_TOKEN বা SIM5_API_TOKEN সেট করা নেই!")
         return
 
-    # ব্যাকগ্রাউন্ডে ফ্লাস্ক সার্ভার চালু করা (রেন্ডারের পোর্টের জন্য)
-    flask_thread = Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
-
-    # টেলিগ্রাম বট অ্যাপ্লিকেশন বিল্ড করা
+    # টেলিগ্রাম অ্যাপ্লিকেশন বিল্ড করা
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button_handler))
 
     logger.info("Bot is starting via Polling...")
-    
-    # মূল থ্রেডে পোলিং রান করা (কোনো ইভেন্ট লুপ এরর ছাড়াই)
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
