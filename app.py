@@ -106,14 +106,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         product = parts[2]
         
         try:
-            url = f"https://5sim.net/v1/user/guest/products/{country}/{product}"
-            response = requests.get(url, headers=SIM5_HEADERS, timeout=10)
+            # পাবলিক গেস্ট এপিআই ব্যবহার করা হয়েছে যাতে ব্যালেন্স জিরো থাকলেও স্টক দেখায়
+            url = f"https://5sim.net/v1/guest/products/{country}/{product}"
+            response = requests.get(url, timeout=10)
             
             if response.status_code == 200:
                 data_json = response.json()
-                msg = f"📊 **Stock Details ({country.capitalize()} - {product.capitalize()}):**\n\n"
+                msg = f"📊 **Stock Details ({country.capitalize()} - {product.capitalize()})**:\n\n"
                 
-                # অপারেটর অনুযায়ী স্টক ও দামের তথ্য সাজানো
                 found = False
                 for operator, details in data_json.items():
                     count = details.get("count", 0)
@@ -127,9 +127,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             else:
                 msg = "❌ স্টক ইনফরমেশন আনতে সমস্যা হয়েছে।"
             
-            keyboard = [[InlineKeyboardButton("🔙 Back to Stock Menu", callback_data="select_stock_country")]
-                        [InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")]]
-            # Fix keyboard layout tuple list
             keyboard = [
                 [InlineKeyboardButton("🔙 Back to Stock Menu", callback_data="select_stock_country")],
                 [InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")]
@@ -275,4 +272,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Bot stopped manually.")
-                
+             
