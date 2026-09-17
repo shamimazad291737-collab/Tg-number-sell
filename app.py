@@ -1,5 +1,6 @@
 import os
 import logging
+import asyncio
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
@@ -78,20 +79,30 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             logger.error(f"Error buying number: {e}")
             await query.edit_message_text(text="⚠️ নাম্বার কেনার সময় ত্রুটি ঘটেছে।")
 
-def main() -> None:
+async def main():
     if not TELEGRAM_BOT_TOKEN or not SIM5_API_TOKEN:
         logger.error("Error: TELEGRAM_BOT_TOKEN বা SIM5_API_TOKEN সেট করা নেই!")
         return
 
-    # টেলিগ্রাম অ্যাপ্লিকেশন বিল্ড করা
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button_handler))
 
-    logger.info("Bot is starting via Polling...")
-    application.run_polling()
+    logger.info("Bot is starting via Async Initialization...")
+    
+    # ইভেন্ট লুপের সমস্যা এড়াতে ইনিশিয়ালাইজ এবং স্টার্ট করা
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+
+    # বট চালু রাখার জন্য ইনফিনিট লুপ
+    while True:
+        await asyncio.sleep(3600)
 
 if __name__ == "__main__":
-    main()
-    
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Bot stopped manually.")
+        
