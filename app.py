@@ -25,7 +25,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
         [InlineKeyboardButton("👤 Profile & Balance", callback_data="check_balance")],
         [InlineKeyboardButton("💳 Deposit (Crypto)", callback_data="deposit_crypto")],
-        [InlineKeyboardButton("🛒 Buy Virtual Number", callback_data="select_country")],
+        [InlineKeyboardButton("📊 Check Stock", callback_data="select_stock_country"),
+         InlineKeyboardButton("🛒 Buy Number", callback_data="select_country")],
         [InlineKeyboardButton("🔍 Active Orders", callback_data="check_orders")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -77,6 +78,68 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         keyboard = [[InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")]]
         await query.edit_message_text(text=msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
+    # --- স্টক চেক করার জন্য কান্ট্রি সিলেকশন মেনু ---
+    elif data == "select_stock_country":
+        keyboard = [
+            [InlineKeyboardButton("🇨🇴 Colombia", callback_data="stock_colombia"),
+             InlineKeyboardButton("🇨🇳 China", callback_data="stock_china")],
+            [InlineKeyboardButton("🇬🇧 England", callback_data="stock_england"),
+             InlineKeyboardButton("🇷🇺 Russia", callback_data="stock_russia")],
+            [InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")]
+        ]
+        await query.edit_message_text(text="📊 **Stock Check - Select Country:**\nকোন দেশের স্টক দেখতে চান সিলেক্ট করুন:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+
+    elif data.startswith("stock_"):
+        country = data.split("_")[1]
+        keyboard = [
+            [InlineKeyboardButton("✈️ Telegram", callback_data=f"viewstock_{country}_telegram"),
+             InlineKeyboardButton("💬 WhatsApp", callback_data=f"viewstock_{country}_whatsapp")],
+            [InlineKeyboardButton("🌐 Google/Gmail", callback_data=f"viewstock_{country}_google"),
+             InlineKeyboardButton("📘 Facebook", callback_data=f"viewstock_{country}_facebook")],
+            [InlineKeyboardButton("🔙 Back to Countries", callback_data="select_stock_country")]
+        ]
+        await query.edit_message_text(text=f"📦 **Country:** `{country.capitalize()}`\nকোন সার্ভিসের স্টক দেখতে চান সিলেক্ট করুন:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+
+    elif data.startswith("viewstock_"):
+        parts = data.split("_")
+        country = parts[1]
+        product = parts[2]
+        
+        try:
+            url = f"https://5sim.net/v1/user/guest/products/{country}/{product}"
+            response = requests.get(url, headers=SIM5_HEADERS, timeout=10)
+            
+            if response.status_code == 200:
+                data_json = response.json()
+                msg = f"📊 **Stock Details ({country.capitalize()} - {product.capitalize()}):**\n\n"
+                
+                # অপারেটর অনুযায়ী স্টক ও দামের তথ্য সাজানো
+                found = False
+                for operator, details in data_json.items():
+                    count = details.get("count", 0)
+                    price = details.get("price", 0)
+                    if count > 0:
+                        found = True
+                        msg += f"🔹 **Operator:** `{operator}`\n   - Stock: `{count} avail.`\n   - Price: `{price} RUB`\n\n"
+                
+                if not found:
+                    msg = f"❌ দুঃখিত! এই মুহূর্তে `{country.capitalize()}` এ `{product.capitalize()}` সার্ভিসের কোনো স্টক নেই।"
+            else:
+                msg = "❌ স্টক ইনফরমেশন আনতে সমস্যা হয়েছে।"
+            
+            keyboard = [[InlineKeyboardButton("🔙 Back to Stock Menu", callback_data="select_stock_country")]
+                        [InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")]]
+            # Fix keyboard layout tuple list
+            keyboard = [
+                [InlineKeyboardButton("🔙 Back to Stock Menu", callback_data="select_stock_country")],
+                [InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")]
+            ]
+            await query.edit_message_text(text=msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        except Exception as e:
+            logger.error(f"Error checking stock: {e}")
+            await query.edit_message_text(text="⚠️ স্টক চেক করার সময় ত্রুটি ঘটেছে।")
+
+    # --- নাম্বার কেনার মেনু ---
     elif data == "select_country":
         keyboard = [
             [InlineKeyboardButton("🇨🇴 Colombia", callback_data="country_colombia"),
@@ -200,12 +263,10 @@ async def main() -> None:
 
     logger.info("Bot is starting via Async Loop...")
     
-    # ইভেন্ট লুপের ঝামেলা এড়াতে সঠিক অ্যাসিনক্রোনাস স্টার্ট মেথড
     await application.initialize()
     await application.start()
     await application.updater.start_polling()
 
-    # বট সচল রাখার জন্য ইনফিনিট লুপ
     while True:
         await asyncio.sleep(3600)
 
@@ -214,4 +275,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Bot stopped manually.")
-        
+                
