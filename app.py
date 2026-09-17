@@ -1,5 +1,6 @@
 import os
 import logging
+import asyncio
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
@@ -66,19 +67,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await query.edit_message_text(text="⚠️ সার্ভারে কানেক্ট করতে সমস্যা হচ্ছে।")
 
     elif data == "deposit_crypto":
-        # ক্রিপ্টো ডিপোজিট অপশন (আপনার ক্রিপ্টো ওয়ালেট অ্যাড্রেস এখানে যুক্ত করতে পারবেন)
         msg = (
             "💳 **Crypto Deposit Instructions:**\n\n"
             "আপনার অ্যাকাউন্টে ব্যালেন্স যোগ করতে নিচের ক্রিপ্টো ওয়ালেট ঠিকানায় পেমেন্ট করুন:\n\n"
             "🪙 **USDT (TRC20):** `TYourCryptoWalletAddressHere12345`\n"
             "🪙 **LTC / BTC:** `LYourLitecoinAddressHere12345`\n\n"
-            "📌 পেমেন্ট করার পর ট্রানজ্যাকশন আইডি (TxID) সহ অ্যাডমিনের সাথে যোগাযোগ করুন, ব্যালেন্স ম্যানুয়ালি বা অটোমেটিক অ্যাড করে দেওয়া হবে।"
+            "📌 পেমেন্ট করার পর ট্রানজ্যাকশন আইডি (TxID) সহ অ্যাডমিনের সাথে যোগাযোগ করুন, ব্যালেন্স অ্যাড করে দেওয়া হবে।"
         )
         keyboard = [[InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")]]
         await query.edit_message_text(text=msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
     elif data == "select_country":
-        # এখানে আপনি আপনার ইচ্ছামমতো দেশ যুক্ত বা এডিট করতে পারবেন
         keyboard = [
             [InlineKeyboardButton("🇨🇴 Colombia", callback_data="country_colombia"),
              InlineKeyboardButton("🇨🇳 China", callback_data="country_china")],
@@ -92,7 +91,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         country = data.split("_")[1]
         context.user_data['selected_country'] = country
         
-        # দেশ সিলেক্ট করার পর সার্ভিস বা অ্যাপ সিলেক্ট করার অপশন
         keyboard = [
             [InlineKeyboardButton("✈️ Telegram", callback_data=f"buy_{country}_telegram"),
              InlineKeyboardButton("💬 WhatsApp", callback_data=f"buy_{country}_whatsapp")],
@@ -106,7 +104,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         parts = data.split("_")
         country = parts[1]
         product = parts[2]
-        operator = "any" # চাইলে অপারেটর চয়েজ মেনুও যোগ করা যাবে
+        operator = "any"
         
         try:
             url = f"https://5sim.net/v1/user/buy/activation/{country}/{operator}/{product}"
@@ -187,11 +185,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             logger.error(f"Error cancelling order: {e}")
 
     elif data == "check_orders":
-        # অ্যাক্টিভ অর্ডার চেক করার শর্টকাট
         keyboard = [[InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")]]
         await query.edit_message_text(text="ℹ️ আপনার শেষ অর্ডারের কোড বা স্ট্যাটাস চেক করতে অর্ডার করার পর পাওয়া পেজ থেকে রিফ্রেশ করুন।", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
-def main() -> None:
+async def main() -> None:
     if not TELEGRAM_BOT_TOKEN or not SIM5_API_TOKEN:
         logger.error("Error: TELEGRAM_BOT_TOKEN বা SIM5_API_TOKEN সেট করা নেই!")
         return
@@ -201,9 +198,20 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button_handler))
 
-    logger.info("Bot is starting via Polling...")
-    application.run_polling()
+    logger.info("Bot is starting via Async Loop...")
+    
+    # ইভেন্ট লুপের ঝামেলা এড়াতে সঠিক অ্যাসিনক্রোনাস স্টার্ট মেথড
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+
+    # বট সচল রাখার জন্য ইনফিনিট লুপ
+    while True:
+        await asyncio.sleep(3600)
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Bot stopped manually.")
         
